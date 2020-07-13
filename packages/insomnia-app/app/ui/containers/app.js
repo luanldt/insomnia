@@ -14,8 +14,9 @@ import Toast from '../components/toast';
 import CookiesModal from '../components/modals/cookies-modal';
 import RequestSwitcherModal from '../components/modals/request-switcher-modal';
 import SettingsModal, { TAB_INDEX_SHORTCUTS } from '../components/modals/settings-modal';
-import { ACTIVITY_HOME, ACTIVITY_INSOMNIA } from '../components/activity-bar/activity-bar';
 import {
+  ACTIVITY_HOME,
+  ACTIVITY_INSOMNIA,
   COLLAPSE_SIDEBAR_REMS,
   DEFAULT_PANE_HEIGHT,
   DEFAULT_PANE_WIDTH,
@@ -27,8 +28,8 @@ import {
   MIN_PANE_WIDTH,
   MIN_SIDEBAR_REMS,
   PREVIEW_MODE_SOURCE,
-  getAppName,
   getAppId,
+  getAppName,
 } from '../../common/constants';
 import * as globalActions from '../redux/modules/global';
 import * as entitiesActions from '../redux/modules/entities';
@@ -42,6 +43,10 @@ import {
   selectActiveRequestMeta,
   selectActiveRequestResponses,
   selectActiveResponse,
+  selectActiveUnitTestResult,
+  selectActiveUnitTests,
+  selectActiveUnitTestSuite,
+  selectActiveUnitTestSuites,
   selectActiveWorkspace,
   selectActiveWorkspaceClientCertificates,
   selectActiveWorkspaceMeta,
@@ -78,7 +83,7 @@ import ExportRequestsModal from '../components/modals/export-requests-modal';
 import FileSystemDriver from '../../sync/store/drivers/file-system-driver';
 import VCS from '../../sync/vcs';
 import SyncMergeModal from '../components/modals/sync-merge-modal';
-import GitVCS, { GIT_NAMESPACE_DIR } from '../../sync/git/git-vcs';
+import GitVCS, { GIT_CLONE_DIR, GIT_INSOMNIA_DIR, GIT_INTERNAL_DIR } from '../../sync/git/git-vcs';
 import NeDBPlugin from '../../sync/git/ne-db-plugin';
 import FSPlugin from '../../sync/git/fs-plugin';
 import { routableFSPlugin } from '../../sync/git/routable-fs-plugin';
@@ -931,11 +936,17 @@ class App extends PureComponent {
    * @private
    */
   _updateDocumentTitle() {
-    const { activeWorkspace, activeApiSpec, activeEnvironment, activeRequest } = this.props;
+    const {
+      activeWorkspace,
+      activeApiSpec,
+      activeEnvironment,
+      activeRequest,
+      activity,
+    } = this.props;
 
     let title;
 
-    if (this.props.activity === ACTIVITY_HOME) {
+    if (activity === ACTIVITY_HOME) {
       title = getAppName();
     } else {
       title = getAppId() === APP_ID_INSOMNIA ? activeWorkspace.name : activeApiSpec.fileName;
@@ -998,7 +1009,6 @@ class App extends PureComponent {
       const pNeDb = NeDBPlugin.createPlugin(activeWorkspace._id);
       const pGitData = FSPlugin.createPlugin(baseDir);
       const pOtherData = FSPlugin.createPlugin(path.join(baseDir, 'other'));
-      const gitSubDir = '/git';
 
       const fsPlugin = routableFSPlugin(
         // All data outside the directories listed below will be stored in an 'other'
@@ -1008,10 +1018,10 @@ class App extends PureComponent {
         {
           // All app data is stored within the a namespaced directory at the root of the
           // repository and is read/written from the local NeDB database
-          [`/${GIT_NAMESPACE_DIR}`]: pNeDb,
+          [GIT_INSOMNIA_DIR]: pNeDb,
 
           // All git metadata is stored in a git/ directory on the filesystem
-          [gitSubDir]: pGitData,
+          [GIT_INTERNAL_DIR]: pGitData,
         },
       );
 
@@ -1019,9 +1029,9 @@ class App extends PureComponent {
       if (activeGitRepository.needsFullClone) {
         await models.gitRepository.update(activeGitRepository, { needsFullClone: false });
         const { credentials, uri } = activeGitRepository;
-        await gitVCS.initFromClone(uri, credentials, '/', fsPlugin, gitSubDir);
+        await gitVCS.initFromClone(uri, credentials, GIT_CLONE_DIR, fsPlugin, GIT_INTERNAL_DIR);
       } else {
-        await gitVCS.init('/', fsPlugin, gitSubDir);
+        await gitVCS.init(GIT_CLONE_DIR, fsPlugin, GIT_INTERNAL_DIR);
       }
 
       // Configure basic info
@@ -1357,15 +1367,15 @@ function mapStateToProps(state, props) {
   // Entities
   const entitiesLists = selectEntitiesLists(state, props);
   const {
-    workspaces,
-    workspaceMetas,
+    apiSpecs,
     environments,
-    requests,
+    gitRepositories,
     requestGroups,
     requestMetas,
     requestVersions,
-    apiSpecs,
-    gitRepositories,
+    requests,
+    workspaceMetas,
+    workspaces,
   } = entitiesLists;
 
   const settings = entitiesLists.settings[0];
@@ -1417,6 +1427,12 @@ function mapStateToProps(state, props) {
   // Api spec stuff
   const activeApiSpec = apiSpecs.find(s => s.parentId === activeWorkspace._id);
 
+  // Test stuff
+  const activeUnitTests = selectActiveUnitTests(state, props);
+  const activeUnitTestSuite = selectActiveUnitTestSuite(state, props);
+  const activeUnitTestSuites = selectActiveUnitTestSuites(state, props);
+  const activeUnitTestResult = selectActiveUnitTestResult(state, props);
+
   return Object.assign({}, state, {
     activity: activeActivity,
     activeApiSpec,
@@ -1426,6 +1442,10 @@ function mapStateToProps(state, props) {
     activeRequest,
     activeRequestResponses,
     activeResponse,
+    activeUnitTestResult,
+    activeUnitTestSuite,
+    activeUnitTestSuites,
+    activeUnitTests,
     activeWorkspace,
     activeWorkspaceClientCertificates,
     activeWorkspaceMeta,

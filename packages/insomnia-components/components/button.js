@@ -98,24 +98,15 @@ const StyledButton: React.ComponentType<Props> = styled.button`
   &:disabled {
     opacity: 60%;
   }
-
-  svg {
-    display: inline-block !important;
-    margin-left: 0.4em;
-  }
 `;
 
-class Button extends React.Component<Props> {
-  render() {
-    return (
-      <StyledButton
-        {...(this.props: Object)}
-        variant={this.props.variant || 'outlined'}
-        bg={this.props.bg || 'default'}
-        size={this.props.size || 'default'}
-      />
-    );
-  }
-}
+const Button = ({ variant, bg, size, ...props }: Props) => (
+  <StyledButton
+    {...props}
+    variant={variant || 'outlined'}
+    bg={bg || 'default'}
+    size={size || 'default'}
+  />
+);
 
 export default Button;

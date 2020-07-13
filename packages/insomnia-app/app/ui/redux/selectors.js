@@ -39,6 +39,10 @@ export const selectEntitiesChildrenMap = createSelector(selectEntitiesLists, ent
   return parentLookupMap;
 });
 
+export const selectSettings = createSelector(selectEntitiesLists, entities => {
+  return entities.settings[0] || models.settings.init();
+});
+
 export const selectActiveWorkspace = createSelector(
   state => selectEntitiesLists(state).workspaces,
   state => state.entities,
@@ -54,6 +58,18 @@ export const selectActiveWorkspaceMeta = createSelector(
   (activeWorkspace, entities) => {
     const id = activeWorkspace ? activeWorkspace._id : 'n/a';
     return entities.workspaceMetas.find(m => m.parentId === id);
+  },
+);
+
+export const selectActiveEnvironment = createSelector(
+  selectActiveWorkspaceMeta,
+  selectEntitiesLists,
+  (meta, entities) => {
+    if (!meta) {
+      return null;
+    }
+
+    return entities.environments.find(e => e._id === meta.activeEnvironmentId) || null;
   },
 );
 
@@ -271,10 +287,10 @@ export const selectActiveRequestMeta = createSelector(
 export const selectActiveRequestResponses = createSelector(
   selectActiveRequest,
   selectEntitiesLists,
-  selectActiveWorkspaceMeta,
-  (activeRequest, entities, meta) => {
+  selectActiveEnvironment,
+  selectSettings,
+  (activeRequest, entities, activeEnvironment, settings) => {
     const requestId = activeRequest ? activeRequest._id : 'n/a';
-    const settings = entities.settings[0];
 
     // Filter responses down if the setting is enabled
     return entities.responses
@@ -282,7 +298,7 @@ export const selectActiveRequestResponses = createSelector(
         const requestMatches = requestId === response.parentId;
 
         if (settings.filterResponsesByEnv) {
-          const activeEnvironmentId = meta ? meta.activeEnvironmentId : 'n/a';
+          const activeEnvironmentId = activeEnvironment ? activeEnvironment._id : null;
           const environmentMatches = response.environmentId === activeEnvironmentId;
           return requestMatches && environmentMatches;
         } else {
@@ -305,6 +321,63 @@ export const selectActiveResponse = createSelector(
     }
 
     return responses[0] || null;
+  },
+);
+
+export const selectActiveUnitTestResult = createSelector(
+  selectEntitiesLists,
+  selectActiveWorkspace,
+  (entities, activeWorkspace) => {
+    let recentResult = null;
+    for (const r of entities.unitTestResults) {
+      if (r.parentId !== activeWorkspace._id) {
+        continue;
+      }
+
+      if (!recentResult) {
+        recentResult = r;
+        continue;
+      }
+
+      if (r.created > recentResult.created) {
+        recentResult = r;
+      }
+    }
+
+    return recentResult;
+  },
+);
+
+export const selectActiveUnitTestSuite = createSelector(
+  selectEntitiesLists,
+  selectActiveWorkspaceMeta,
+  (entities, activeWorkspaceMeta) => {
+    if (!activeWorkspaceMeta) {
+      return null;
+    }
+
+    const id = activeWorkspaceMeta.activeUnitTestSuiteId;
+    return entities.unitTestSuites.find(s => s._id === id) || null;
+  },
+);
+
+export const selectActiveUnitTests = createSelector(
+  selectEntitiesLists,
+  selectActiveUnitTestSuite,
+  (entities, activeUnitTestSuite) => {
+    if (!activeUnitTestSuite) {
+      return [];
+    }
+
+    return entities.unitTests.filter(s => s.parentId === activeUnitTestSuite._id);
+  },
+);
+
+export const selectActiveUnitTestSuites = createSelector(
+  selectEntitiesLists,
+  selectActiveWorkspace,
+  (entities, activeWorkspace) => {
+    return entities.unitTestSuites.filter(s => s.parentId === activeWorkspace._id);
   },
 );
 

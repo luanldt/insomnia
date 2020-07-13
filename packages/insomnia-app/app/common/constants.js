@@ -4,8 +4,6 @@ import * as electron from 'electron';
 import path from 'path';
 import mkdirp from 'mkdirp';
 import { getDataDirectory } from './misc';
-import type { GlobalActivity } from '../ui/components/activity-bar/activity-bar';
-import { ACTIVITY_INSOMNIA } from '../ui/components/activity-bar/activity-bar';
 
 // App Stuff
 
@@ -153,6 +151,14 @@ export const DEFAULT_PANE_WIDTH = 0.5;
 export const DEFAULT_PANE_HEIGHT = 0.5;
 export const DEFAULT_SIDEBAR_WIDTH = 19;
 
+// Activities
+export type GlobalActivity = 'spec' | 'debug' | 'monitor' | 'home';
+export const ACTIVITY_SPEC: GlobalActivity = 'spec';
+export const ACTIVITY_DEBUG: GlobalActivity = 'debug';
+export const ACTIVITY_UNIT_TEST: GlobalActivity = 'unittest';
+export const ACTIVITY_HOME: GlobalActivity = 'home';
+export const ACTIVITY_INSOMNIA: GlobalActivity = 'insomnia';
+
 // HTTP Methods
 export const METHOD_GET = 'GET';
 export const METHOD_POST = 'POST';
@@ -226,6 +232,17 @@ export const HAWK_ALGORITHM_SHA1 = 'sha1';
 // json-order constants
 export const JSON_ORDER_PREFIX = '&';
 export const JSON_ORDER_SEPARATOR = '~|';
+
+// HTTP version codes
+export const HttpVersions = {
+  V1_0: 'V1_0',
+  V1_1: 'V1_1',
+  V2_0: 'V2_0',
+  v3: 'v3',
+  default: 'default',
+};
+
+export type HttpVersion = $Keys<typeof HttpVersions>;
 
 const authTypesMap = {
   [AUTH_BASIC]: ['Basic', 'Basic Auth'],
@@ -357,4 +374,85 @@ export const RESPONSE_CODE_DESCRIPTIONS = {
   508: 'The server detected an infinite loop while processing the request.',
   510: 'Further extensions to the request are required for the server to fulfill it.',
   511: 'The 511 status code indicates that the client needs to authenticate to gain network access.',
+};
+
+export const RESPONSE_CODE_REASONS = {
+  // Special
+  [STATUS_CODE_PLUGIN_ERROR]: 'Plugin Error',
+
+  // 100s
+
+  100: 'Continue',
+  101: 'Switching Protocols',
+
+  // 200s
+
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  203: 'Non-Authoritative Information',
+  204: 'No Content',
+  205: 'Reset Content',
+  206: 'Partial Content',
+  207: 'Multi-Status',
+  208: 'Already Reported',
+  226: 'IM Used',
+
+  // 300s
+
+  300: 'Multiple Choices',
+  301: 'Moved Permanently',
+  302: 'Found',
+  303: 'See Other',
+  304: 'Not Modified',
+  305: 'Use Proxy',
+  306: 'Switch Proxy',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+
+  // 400s
+
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  402: 'Payment Required',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  406: 'Not Acceptable',
+  407: 'Proxy Authentication Required',
+  408: 'Request Timeout',
+  409: 'Conflict',
+  410: 'Gone',
+  411: 'Length Required',
+  412: 'Precondition Failed',
+  413: 'Payload Too Large',
+  414: 'URI Too Long',
+  415: 'Unsupported Media Type',
+  416: 'Range Not Satisfiable',
+  417: 'Expectation Failed',
+  418: "I'm a Teapot",
+  421: 'Misdirected Request',
+  422: 'Unprocessable Entity',
+  423: 'Locked',
+  424: 'Failed Dependency',
+  425: 'Too Early',
+  426: 'Upgrade Required',
+  428: 'Precondition Required',
+  429: 'Too Many Requests',
+  431: 'Request Header Fields Too Large',
+  451: 'Unavailable For Legal Reasons',
+
+  // 500s
+
+  500: 'Internal Server Error',
+  501: 'Not Implemented',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+  505: 'HTTP Version Not Supported',
+  506: 'Variant Also Negotiates',
+  507: 'Insufficient Storage',
+  508: 'Loop Detected',
+  510: 'Not Extended',
+  511: 'Network Authentication Required',
 };

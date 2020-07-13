@@ -1,14 +1,16 @@
 // @flow
 import * as React from 'react';
-import * as fontScanner from 'font-scanner';
+import * as fontScanner from 'font-manager';
 import * as electron from 'electron';
 import autobind from 'autobind-decorator';
 import HelpTooltip from '../help-tooltip';
+import type { HttpVersion } from '../../../common/constants';
 import {
   EDITOR_KEY_MAP_DEFAULT,
   EDITOR_KEY_MAP_EMACS,
   EDITOR_KEY_MAP_SUBLIME,
   EDITOR_KEY_MAP_VIM,
+  HttpVersions,
   isLinux,
   isMac,
   isWindows,
@@ -47,20 +49,23 @@ class General extends React.PureComponent<Props, State> {
     };
   }
 
-  async componentDidMount() {
-    const allFonts = await fontScanner.getAvailableFonts();
+  componentDidMount() {
+    fontScanner.getAvailableFonts(allFonts => {
+      // Find regular fonts
+      const fonts = allFonts
+        .filter(i => ['regular', 'book'].includes(i.style.toLowerCase()) && !i.italic)
+        .sort((a, b) => (a.family > b.family ? 1 : -1));
 
-    // Find regular fonts
-    const fonts = allFonts
-      .filter(i => ['regular', 'book'].includes(i.style.toLowerCase()) && !i.italic)
-      .sort((a, b) => (a.family > b.family ? 1 : -1));
+      // Find monospaced fonts
+      // NOTE: Also include some others:
+      //  - https://github.com/Kong/insomnia/issues/1835
+      const fontsMono = fonts.filter(i => i.monospace || i.family.match(FORCED_MONO_FONT_REGEX));
 
-    // Find monospaced fonts
-    // NOTE: Also include some others:
-    //  - https://github.com/Kong/insomnia/issues/1835
-    const fontsMono = fonts.filter(i => i.monospace || i.family.match(FORCED_MONO_FONT_REGEX));
-
-    this.setState({ fonts, fontsMono });
+      this.setState({
+        fonts,
+        fontsMono,
+      });
+    });
   }
 
   async _handleUpdateSetting(e: SyntheticEvent<HTMLInputElement>): Promise<Settings> {
@@ -78,21 +83,11 @@ class General extends React.PureComponent<Props, State> {
     return this.props.updateSetting(el.name, value);
   }
 
-  async _handleToggleMenuBar(e: SyntheticEvent<HTMLInputElement>) {
-    const settings = await this._handleUpdateSetting(e);
-    this.props.handleToggleMenuBar(settings.autoHideMenuBar);
-  }
-
   async _handleUpdateSettingAndRestart(e: SyntheticEvent<HTMLInputElement>) {
     await this._handleUpdateSetting(e);
     const { app } = electron.remote || electron;
     app.relaunch();
     app.exit();
-  }
-
-  async _handleFontLigatureChange(el: SyntheticEvent<HTMLInputElement>) {
-    const settings = await this._handleUpdateSetting(el);
-    setFont(settings);
   }
 
   async _handleFontSizeChange(el: SyntheticEvent<HTMLInputElement>) {
@@ -103,6 +98,32 @@ class General extends React.PureComponent<Props, State> {
   async _handleFontChange(el: SyntheticEvent<HTMLInputElement>) {
     const settings = await this._handleUpdateSetting(el);
     setFont(settings);
+  }
+
+  renderEnumSetting(
+    label: string,
+    name: string,
+    values: Array<{ name: string, value: any }>,
+    help: string,
+    forceRestart?: boolean,
+  ) {
+    const { settings } = this.props;
+    const onChange = forceRestart ? this._handleUpdateSettingAndRestart : this._handleUpdateSetting;
+    return (
+      <div className="form-control form-control--outlined pad-top-sm">
+        <label>
+          {label}
+          {help && <HelpTooltip className="space-left">{help}</HelpTooltip>}
+          <select value={settings[name] || '__NULL__'} name={name} onChange={onChange}>
+            {values.map(({ name, value }) => (
+              <option key={value} value={value}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    );
   }
 
   renderBooleanSetting(label: string, name: string, help: string, forceRestart?: boolean) {
@@ -155,7 +176,10 @@ class General extends React.PureComponent<Props, State> {
   }
 
   renderNumberSetting(label: string, name: string, help: string, props: Object) {
-    return this.renderTextSetting(label, name, help, { ...props, type: 'number' });
+    return this.renderTextSetting(label, name, help, {
+      ...props,
+      type: 'number',
+    });
   }
 
   render() {
@@ -325,6 +349,24 @@ class General extends React.PureComponent<Props, State> {
         </div>
 
         <div className="form-row pad-top-sm">
+          {this.renderEnumSetting(
+            'Preferred HTTP version',
+            'preferredHttpVersion',
+            ([
+              { name: 'Default', value: HttpVersions.default },
+              { name: 'HTTP 1.0', value: HttpVersions.V1_0 },
+              { name: 'HTTP 1.1', value: HttpVersions.V1_1 },
+              { name: 'HTTP/2', value: HttpVersions.V2_0 },
+
+              // Enable when our version of libcurl supports HTTP/3
+              // { name: 'HTTP/3', value: HttpVersions.v3 },
+            ]: Array<{ name: string, value: HttpVersion }>),
+            'Preferred HTTP version to use for requests which will fall back if it cannot be' +
+              'negotiated',
+          )}
+        </div>
+
+        <div className="form-row pad-top-sm">
           {this.renderNumberSetting('Maximum Redirects', 'maxRedirects', '-1 for infinite', {
             min: -1,
           })}
@@ -352,7 +394,10 @@ class General extends React.PureComponent<Props, State> {
           HTTP Network Proxy
           <HelpTooltip
             className="space-left txt-md"
-            style={{ maxWidth: '20rem', lineWrap: 'word' }}>
+            style={{
+              maxWidth: '20rem',
+              lineWrap: 'word',
+            }}>
             Enable global network proxy. Supports authentication via Basic Auth, digest, or NTLM
           </HelpTooltip>
         </h2>
@@ -434,13 +479,6 @@ class General extends React.PureComponent<Props, State> {
 
         <br />
 
-        {session.isLoggedIn() && (
-          <React.Fragment>
-            <hr />
-            {this.renderBooleanSetting('Enable version control beta', 'enableSyncBeta', '', true)}
-          </React.Fragment>
-        )}
-
         <hr className="pad-top" />
         <h2>Data Sharing</h2>
         <div className="form-control form-control--thin">
@@ -463,6 +501,13 @@ class General extends React.PureComponent<Props, State> {
             as request data, names, etc.
           </p>
         </div>
+
+        {session.isLoggedIn() && (
+          <React.Fragment>
+            <hr />
+            {this.renderBooleanSetting('Enable version control beta', 'enableSyncBeta', '', true)}
+          </React.Fragment>
+        )}
       </div>
     );
   }
