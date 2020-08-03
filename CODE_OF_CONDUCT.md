@@ -19,7 +19,7 @@ a person's ability to participate within them.
 
 If you believe someone is violating the code of conduct, we ask that you report it by 
 emailing [support@insomnia.rest](mailto:support@insomnia.rest). For more details 
-please see our Reporting Guidelines
+please see our Reporting Guidelines:
 
 - **Be friendly and patient.**
 - **Be welcoming.** We strive to be a community that welcomes and supports people of all 
